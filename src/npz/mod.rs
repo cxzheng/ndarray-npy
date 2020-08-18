@@ -1,53 +1,13 @@
-use crate::{
-    ReadNpyError, ReadNpyExt, ReadableElement, WritableElement, WriteNpyError, WriteNpyExt,
-};
+mod error;
+pub use error::*;
+
+use crate::{ReadNpyExt, ReadableElement, WritableElement, WriteNpyExt};
 use ndarray::prelude::*;
 use ndarray::{Data, DataOwned};
-use std::error::Error;
-use std::fmt;
 use std::io::{Read, Seek, Write};
 use zip::result::ZipError;
 use zip::write::FileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
-
-/// An error writing a `.npz` file.
-#[derive(Debug)]
-pub enum WriteNpzError {
-    /// An error caused by the zip file.
-    Zip(ZipError),
-    /// An error caused by writing an inner `.npy` file.
-    Npy(WriteNpyError),
-}
-
-impl Error for WriteNpzError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            WriteNpzError::Zip(err) => Some(err),
-            WriteNpzError::Npy(err) => Some(err),
-        }
-    }
-}
-
-impl fmt::Display for WriteNpzError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            WriteNpzError::Zip(err) => write!(f, "zip file error: {}", err),
-            WriteNpzError::Npy(err) => write!(f, "error writing npy file to npz archive: {}", err),
-        }
-    }
-}
-
-impl From<ZipError> for WriteNpzError {
-    fn from(err: ZipError) -> WriteNpzError {
-        WriteNpzError::Zip(err)
-    }
-}
-
-impl From<WriteNpyError> for WriteNpzError {
-    fn from(err: WriteNpyError) -> WriteNpzError {
-        WriteNpzError::Npy(err)
-    }
-}
 
 /// Writer for `.npz` files.
 ///
@@ -107,45 +67,6 @@ impl<W: Write + Seek> NpzWriter<W> {
         self.zip.start_file(name, self.options)?;
         array.write_npy(&mut self.zip)?;
         Ok(())
-    }
-}
-
-/// An error reading a `.npz` file.
-#[derive(Debug)]
-pub enum ReadNpzError {
-    /// An error caused by the zip archive.
-    Zip(ZipError),
-    /// An error caused by reading an inner `.npy` file.
-    Npy(ReadNpyError),
-}
-
-impl Error for ReadNpzError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ReadNpzError::Zip(err) => Some(err),
-            ReadNpzError::Npy(err) => Some(err),
-        }
-    }
-}
-
-impl fmt::Display for ReadNpzError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ReadNpzError::Zip(err) => write!(f, "zip file error: {}", err),
-            ReadNpzError::Npy(err) => write!(f, "error reading npy file in npz archive: {}", err),
-        }
-    }
-}
-
-impl From<ZipError> for ReadNpzError {
-    fn from(err: ZipError) -> ReadNpzError {
-        ReadNpzError::Zip(err)
-    }
-}
-
-impl From<ReadNpyError> for ReadNpzError {
-    fn from(err: ReadNpyError) -> ReadNpzError {
-        ReadNpzError::Npy(err)
     }
 }
 
