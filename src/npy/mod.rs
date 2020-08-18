@@ -110,15 +110,18 @@ where
                 fortran_order,
                 shape: self.shape().to_owned(),
             }
-            .write(&mut writer)?;
+            .write(&mut writer)?; // write header
             A::write_slice(self.as_slice_memory_order().unwrap(), &mut writer)?;
             Ok(())
         };
         if self.is_standard_layout() {
+            // contiguous “C order”
             write_contiguous(writer, false)
         } else if self.view().reversed_axes().is_standard_layout() {
+            // contiguous "F order"
             write_contiguous(writer, true)
         } else {
+            // e.g., has custom strides
             Header {
                 type_descriptor: A::type_descriptor(),
                 fortran_order: false,
