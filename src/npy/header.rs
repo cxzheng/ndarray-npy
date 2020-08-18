@@ -1,10 +1,8 @@
+use super::error::*;
 use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
 use num_traits::ToPrimitive;
-use py_literal::{
-    FormatError as PyValueFormatError, ParseError as PyValueParseError, Value as PyValue,
-};
+use py_literal::Value as PyValue;
 use std::convert::TryFrom;
-use std::error::Error;
 use std::fmt;
 use std::io;
 
@@ -15,119 +13,6 @@ const MAGIC_STRING: &[u8] = b"\x93NUMPY";
 /// length value, array format description, padding, and final newline) must be
 /// evenly divisible by this value.
 const HEADER_DIVISOR: usize = 64;
-
-#[derive(Debug)]
-pub enum ParseHeaderError {
-    MagicString,
-    Version {
-        major: u8,
-        minor: u8,
-    },
-    /// Indicates that the `HEADER_LEN` doesn't fit in `usize`.
-    HeaderLengthOverflow(u32),
-    /// Indicates that the array format string contains non-ASCII characters.
-    /// This is an error for .npy format versions 1.0 and 2.0.
-    NonAscii,
-    /// Error parsing the array format string as UTF-8. This does not apply to
-    /// .npy format versions 1.0 and 2.0, which require the array format string
-    /// to be ASCII.
-    Utf8Parse(std::str::Utf8Error),
-    UnknownKey(PyValue),
-    MissingKey(String),
-    IllegalValue {
-        key: String,
-        value: PyValue,
-    },
-    DictParse(PyValueParseError),
-    MetaNotDict(PyValue),
-    MissingNewline,
-}
-
-impl Error for ParseHeaderError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        use ParseHeaderError::*;
-        match self {
-            MagicString => None,
-            Version { .. } => None,
-            HeaderLengthOverflow(_) => None,
-            NonAscii => None,
-            Utf8Parse(err) => Some(err),
-            UnknownKey(_) => None,
-            MissingKey(_) => None,
-            IllegalValue { .. } => None,
-            DictParse(err) => Some(err),
-            MetaNotDict(_) => None,
-            MissingNewline => None,
-        }
-    }
-}
-
-impl fmt::Display for ParseHeaderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ParseHeaderError::*;
-        match self {
-            MagicString => write!(f, "start does not match magic string"),
-            Version { major, minor } => write!(f, "unknown version number: {}.{}", major, minor),
-            HeaderLengthOverflow(header_len) => write!(f, "HEADER_LEN {} does not fit in `usize`", header_len),
-            NonAscii => write!(f, "non-ascii in array format string; this is not supported in .npy format versions 1.0 and 2.0"),
-            Utf8Parse(err) => write!(f, "error parsing array format string as UTF-8: {}", err),
-            UnknownKey(key) => write!(f, "unknown key: {}", key),
-            MissingKey(key) => write!(f, "missing key: {}", key),
-            IllegalValue { key, value } => write!(f, "illegal value for key {}: {}", key, value),
-            DictParse(err) => write!(f, "error parsing metadata dict: {}", err),
-            MetaNotDict(value) => write!(f, "metadata is not a dict: {}", value),
-            MissingNewline => write!(f, "newline missing at end of header"),
-        }
-    }
-}
-
-impl From<std::str::Utf8Error> for ParseHeaderError {
-    fn from(err: std::str::Utf8Error) -> ParseHeaderError {
-        ParseHeaderError::Utf8Parse(err)
-    }
-}
-
-impl From<PyValueParseError> for ParseHeaderError {
-    fn from(err: PyValueParseError) -> ParseHeaderError {
-        ParseHeaderError::DictParse(err)
-    }
-}
-
-#[derive(Debug)]
-pub enum ReadHeaderError {
-    Io(io::Error),
-    Parse(ParseHeaderError),
-}
-
-impl Error for ReadHeaderError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ReadHeaderError::Io(err) => Some(err),
-            ReadHeaderError::Parse(err) => Some(err),
-        }
-    }
-}
-
-impl fmt::Display for ReadHeaderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ReadHeaderError::Io(err) => write!(f, "I/O error: {}", err),
-            ReadHeaderError::Parse(err) => write!(f, "error parsing header: {}", err),
-        }
-    }
-}
-
-impl From<io::Error> for ReadHeaderError {
-    fn from(err: io::Error) -> ReadHeaderError {
-        ReadHeaderError::Io(err)
-    }
-}
-
-impl From<ParseHeaderError> for ReadHeaderError {
-    fn from(err: ParseHeaderError) -> ReadHeaderError {
-        ReadHeaderError::Parse(err)
-    }
-}
 
 #[derive(Clone, Copy)]
 #[allow(non_camel_case_types)]
@@ -248,74 +133,6 @@ struct HeaderLengthInfo {
     formatted_header_len: Vec<u8>,
     /// Number of spaces of padding.
     padding_len: usize,
-}
-
-#[derive(Debug)]
-pub enum FormatHeaderError {
-    PyValue(PyValueFormatError),
-    /// The total header length overflows `usize`, or `HEADER_LEN` exceeds the
-    /// maximum encodable value.
-    HeaderTooLong,
-}
-
-impl Error for FormatHeaderError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            FormatHeaderError::PyValue(err) => Some(err),
-            FormatHeaderError::HeaderTooLong => None,
-        }
-    }
-}
-
-impl fmt::Display for FormatHeaderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            FormatHeaderError::PyValue(err) => write!(f, "error formatting Python value: {}", err),
-            FormatHeaderError::HeaderTooLong => write!(f, "the header is too long"),
-        }
-    }
-}
-
-impl From<PyValueFormatError> for FormatHeaderError {
-    fn from(err: PyValueFormatError) -> FormatHeaderError {
-        FormatHeaderError::PyValue(err)
-    }
-}
-
-#[derive(Debug)]
-pub enum WriteHeaderError {
-    Io(io::Error),
-    Format(FormatHeaderError),
-}
-
-impl Error for WriteHeaderError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            WriteHeaderError::Io(err) => Some(err),
-            WriteHeaderError::Format(err) => Some(err),
-        }
-    }
-}
-
-impl fmt::Display for WriteHeaderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            WriteHeaderError::Io(err) => write!(f, "I/O error: {}", err),
-            WriteHeaderError::Format(err) => write!(f, "error formatting header: {}", err),
-        }
-    }
-}
-
-impl From<io::Error> for WriteHeaderError {
-    fn from(err: io::Error) -> WriteHeaderError {
-        WriteHeaderError::Io(err)
-    }
-}
-
-impl From<FormatHeaderError> for WriteHeaderError {
-    fn from(err: FormatHeaderError) -> WriteHeaderError {
-        WriteHeaderError::Format(err)
-    }
 }
 
 #[derive(Clone, Debug)]
