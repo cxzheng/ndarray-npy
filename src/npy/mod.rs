@@ -136,6 +136,36 @@ where
     }
 }
 
+/// Write a slice of primitive types to `.npy` files.
+///
+/// # Example
+///
+/// ```no_run
+/// use ndarray_npy::WriteNpyExt;
+/// use std::fs::File;
+/// # use ndarray_npy::WriteNpyError;
+///
+/// let arr: Vec<f64> = vec![1., 2., 3., 4., 5., 6.];
+/// let writer = File::create("vec.npy")?;
+/// arr.write_npy(writer)?;
+/// # Ok::<_, WriteNpyError>(())
+/// ```
+impl<A> WriteNpyExt for [A]
+where
+    A: WritableElement,
+{
+    fn write_npy<W: io::Write>(&self, mut writer: W) -> Result<(), WriteNpyError> {
+        Header {
+            type_descriptor: A::type_descriptor(),
+            fortran_order: false,
+            shape: vec![self.len()],
+        }
+        .write(&mut writer)?;
+        A::write_slice(&self, &mut writer)?;
+        Ok(())
+    }
+}
+
 /// An array element type that can be read from an `.npy` or `.npz` file.
 pub trait ReadableElement: Sized {
     /// Reads to the end of the `reader`, creating a `Vec` of length `len`.

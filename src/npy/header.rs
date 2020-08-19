@@ -14,6 +14,24 @@ const MAGIC_STRING: &[u8] = b"\x93NUMPY";
 /// evenly divisible by this value.
 const HEADER_DIVISOR: usize = 64;
 
+struct HeaderLengthInfo {
+    /// Total header length (including magic string, version number, header
+    /// length value, array format description, padding, and final newline).
+    total_len: usize,
+    /// Formatted `HEADER_LEN` value. (This is the number of bytes in the array
+    /// format description, padding, and final newline.)
+    formatted_header_len: Vec<u8>,
+    /// Number of spaces of padding.
+    padding_len: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct Header {
+    pub type_descriptor: PyValue,
+    pub fortran_order: bool,
+    pub shape: Vec<usize>,
+}
+
 #[derive(Clone, Copy)]
 #[allow(non_camel_case_types)]
 enum Version {
@@ -122,24 +140,6 @@ impl Version {
             padding_len,
         })
     }
-}
-
-struct HeaderLengthInfo {
-    /// Total header length (including magic string, version number, header
-    /// length value, array format description, padding, and final newline).
-    total_len: usize,
-    /// Formatted `HEADER_LEN` value. (This is the number of bytes in the array
-    /// format description, padding, and final newline.)
-    formatted_header_len: Vec<u8>,
-    /// Number of spaces of padding.
-    padding_len: usize,
-}
-
-#[derive(Clone, Debug)]
-pub struct Header {
-    pub type_descriptor: PyValue,
-    pub fortran_order: bool,
-    pub shape: Vec<usize>,
 }
 
 impl fmt::Display for Header {

@@ -16,7 +16,15 @@ fn read_example() -> Result<(), ReadNpyError> {
     Ok(())
 }
 
+fn write_vec() -> Result<(), WriteNpyError> {
+    let arr: Vec<f64> = vec![1., 2., 3., 4., 5., 6.];
+    let writer = File::create("vec.npy")?;
+    arr.write_npy(writer)?;
+    Ok(())
+}
+
 fn main() {
     write_example().expect("failure writing array to file");
     read_example().expect("failure reading array from file");
+    write_vec().expect("failure writing vector to file");
 }
