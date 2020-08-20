@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId}; //, black_box};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion}; //, black_box};
 use ndarray_npy::WriteNpyExt;
 use std::fs::File;
 

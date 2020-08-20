@@ -21,8 +21,6 @@ struct HeaderLengthInfo {
     /// Formatted `HEADER_LEN` value. (This is the number of bytes in the array
     /// format description, padding, and final newline.)
     formatted_header_len: Vec<u8>,
-    /// Number of spaces of padding.
-    padding_len: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -130,14 +128,16 @@ impl Version {
         let unpadded_total_len: usize = prefix_len
             .checked_add(unpadded_arr_format.len())?
             .checked_add(NEWLINE_LEN)?;
-        let padding_len: usize = HEADER_DIVISOR - unpadded_total_len % HEADER_DIVISOR;
+        let pad_res = unpadded_total_len % HEADER_DIVISOR;
+        let padding_len: usize = match pad_res {
+            0 => 0,
+            _ => HEADER_DIVISOR - pad_res,
+        };
         let total_len: usize = unpadded_total_len.checked_add(padding_len)?;
-        let header_len: usize = total_len - prefix_len;
-        let formatted_header_len = self.format_header_len(header_len)?;
+        let formatted_header_len = self.format_header_len(total_len - prefix_len)?;
         Some(HeaderLengthInfo {
             total_len,
             formatted_header_len,
-            padding_len,
         })
     }
 }
@@ -285,9 +285,7 @@ impl Header {
         out.push(version.minor_version());
         out.extend_from_slice(&length_info.formatted_header_len);
         out.extend_from_slice(&arr_format);
-        for _ in 0..length_info.padding_len {
-            out.push(b' ');
-        }
+        out.resize(length_info.total_len - 1, b' ');
         out.push(b'\n');
 
         // Verify the length of the header.
