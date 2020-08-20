@@ -29,3 +29,7 @@ criterion = { version = "0.3", features=['real_blackbox'] }
 [[bench]]
 name = "write_arr"
 harness = false
+
+[[bench]]
+name = "memcpy"
+harness = false
