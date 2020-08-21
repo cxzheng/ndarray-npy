@@ -23,14 +23,15 @@ pub struct NpyOutStream<T: WritableElement> {
 /// a file.
 ///
 /// The builder is created from specifying the file name using [`new`](#method.from_path).
-/// 
+///
 /// # Example
 ///
 /// ```no_run
 /// use ndarray_npy::NpyOutStreamBuilder;
 /// # use ndarray_npy::WriteNpyError;
-/// 
-/// let stream = NpyOutStreamBuilder::<f32>::new("out.npy").for_arr2((2, 2)).f().build()?;
+///
+/// let mut stream = NpyOutStreamBuilder::<f32>::new("out.npy").for_arr2([2, 2]).build()?;
+/// # Ok::<_, WriteNpyError>(())
 /// ```
 pub struct NpyOutStreamBuilder<T: WritableElement> {
     path: PathBuf,
@@ -39,8 +40,8 @@ pub struct NpyOutStreamBuilder<T: WritableElement> {
 }
 
 impl<T: WritableElement> NpyOutStream<T> {
-    /// Incrementally output to the stream a slice of data. 
-    /// 
+    /// Incrementally output to the stream a slice of data.
+    ///
     /// An error will be raised if the total number of array elements that are put into the stream
     /// exceeds the total number of elements defined by the array shape.
     pub fn write_slice(&mut self, slice: &[T]) -> Result<usize, WriteNpyError> {
@@ -70,36 +71,36 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         }
     }
 
-    pub fn set_dim<'a, D: Dimension>(&'a mut self, dim: D) -> &'a mut NpyOutStreamBuilder<T> {
+    pub fn set_dim<D: Dimension>(mut self, dim: D) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.extend_from_slice(dim.slice());
         self
     }
 
-    pub fn for_arr1<'a>(&'a mut self, len: usize) -> &'a mut NpyOutStreamBuilder<T> {
+    pub fn for_arr1(mut self, len: usize) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.push(len);
         self
     }
 
-    pub fn for_arr2<'a>(&'a mut self, dim: [usize; 2]) -> &'a mut NpyOutStreamBuilder<T> {
+    pub fn for_arr2(mut self, dim: [usize; 2]) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.extend_from_slice(&dim);
         self
     }
 
-    pub fn for_arr3<'a>(&'a mut self, dim: [usize; 3]) -> &'a mut NpyOutStreamBuilder<T> {
+    pub fn for_arr3(mut self, dim: [usize; 3]) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.extend_from_slice(&dim);
         self
     }
 
-    pub fn f<'a>(&'a mut self) -> &'a mut NpyOutStreamBuilder<T> {
+    pub fn f(mut self) -> NpyOutStreamBuilder<T> {
         self.header.fortran_order = true;
         self
     }
 
-    pub fn c<'a>(&'a mut self) -> &'a mut NpyOutStreamBuilder<T> {
+    pub fn c(mut self) -> NpyOutStreamBuilder<T> {
         self.header.fortran_order = false;
         self
     }
