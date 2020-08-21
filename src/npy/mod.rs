@@ -1,6 +1,8 @@
 mod error;
 pub mod header;
+mod stream;
 pub use error::*;
+pub use stream::*;
 
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use header::Header;

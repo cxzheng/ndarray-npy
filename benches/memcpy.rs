@@ -17,11 +17,9 @@ fn mem_copy(c: &mut Criterion) {
 
     for i in 0..sizes.len() {
         group.bench_with_input(BenchmarkId::from_parameter(sizes[i]), &i, |b, &i| {
-            b.iter(|| {
-                unsafe {
-                    *vecs[i].get_unchecked_mut(0) += i as f64;
-                    copy_nonoverlapping(vecs[i].as_ptr(), dest.as_mut_ptr(), sizes[i]);
-                }
+            b.iter(|| unsafe {
+                *vecs[i].get_unchecked_mut(0) += i as f64;
+                copy_nonoverlapping(vecs[i].as_ptr(), dest.as_mut_ptr(), sizes[i]);
             })
         });
     }

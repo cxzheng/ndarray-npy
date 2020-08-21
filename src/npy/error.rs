@@ -80,6 +80,9 @@ pub enum WriteDataError {
     /// An error caused by I/O.
     #[error("I/O error")]
     Io(#[from] std::io::Error),
+
+    #[error("Number of written elements ({1}) exceeds the size ({0}) given by the dim")]
+    TooManyElement(usize, usize),
 }
 
 /// An error writing a `.npy` file.
