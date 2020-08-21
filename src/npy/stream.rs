@@ -3,7 +3,7 @@ use super::{
     header::Header,
     WritableElement,
 };
-use ndarray::Dimension;
+use ndarray::{Dimension, IntoDimension};
 use std::{
     fs::File,
     marker,
@@ -56,6 +56,26 @@ impl<T: WritableElement> NpyOutStream<T> {
             Ok(self.written_elems)
         }
     }
+
+    /// Return the total number of elements expected to be put into the stream.
+    #[inline(always)]
+    pub fn tot_elems(&self) -> usize {
+        self.tot_elems
+    }
+
+    #[inline(always)]
+    pub fn finished(&self) -> bool {
+        self.tot_elems == self.written_elems
+    }
+}
+
+impl<T: WritableElement> Drop for NpyOutStream<T> {
+    fn drop(&mut self) {
+        if !self.finished() {
+            eprintln!("WARNING: The NpyOutStream is closed without receiving all elements: expect {} elements, received {} elements",
+                      self.tot_elems(), self.written_elems);
+        }
+    }
 }
 
 impl<T: WritableElement> NpyOutStreamBuilder<T> {
@@ -71,9 +91,11 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         }
     }
 
-    pub fn set_dim<D: Dimension>(mut self, dim: D) -> NpyOutStreamBuilder<T> {
+    pub fn for_dim<D: IntoDimension>(mut self, dim: D) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
-        self.header.shape.extend_from_slice(dim.slice());
+        self.header
+            .shape
+            .extend_from_slice(dim.into_dimension().slice());
         self
     }
 
@@ -116,5 +138,41 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
             writer,
             _marker: marker::PhantomData,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::NpyOutStreamBuilder;
+
+    #[test]
+    fn test_2x3() {
+        let mut stream = NpyOutStreamBuilder::<f32>::new("out.npy")
+            .for_dim((2, 3))
+            .build()
+            .unwrap();
+        assert_eq!(stream.tot_elems(), 6);
+        let vec1 = vec![1., 2.];
+        let vec2 = vec![3., 4., 5., 6.];
+        stream.write_slice(&vec1).unwrap();
+        stream.write_slice(&vec2).unwrap();
+    }
+
+    #[test]
+    fn test_100x3() {
+        let mut stream = NpyOutStreamBuilder::<f32>::new("out2.npy")
+            .for_dim((100, 3))
+            .f()
+            .build()
+            .unwrap();
+        assert_eq!(stream.tot_elems(), 300);
+        let mut vec = vec![0.; 100];
+        for i in 0..3 {
+            for v in &mut vec {
+                *v = (i + 1) as f32;
+            }
+            stream.write_slice(&vec).unwrap();
+        }
+        assert!(stream.finished());
     }
 }
