@@ -6,16 +6,21 @@ use super::{
 use ndarray::{Dimension, IntoDimension};
 use std::{
     fs::File,
+    io::BufWriter,
     marker,
     path::{Path, PathBuf},
 };
 
 /// This define a stream that allows progressively output a stream of array data
 /// into a `.npy` file.
-pub struct NpyOutStream<T: WritableElement> {
+pub struct NpyOutStream<T, W>
+where
+    T: WritableElement,
+    W: std::io::Write,
+{
     tot_elems: usize,     // total number of elements to output
     written_elems: usize, // how many elements have been written
-    writer: File,
+    writer: W,
     _marker: marker::PhantomData<T>,
 }
 
@@ -36,10 +41,15 @@ pub struct NpyOutStream<T: WritableElement> {
 pub struct NpyOutStreamBuilder<T: WritableElement> {
     path: PathBuf,
     header: Header,
+    buf_size: usize,
     _marker: marker::PhantomData<T>,
 }
 
-impl<T: WritableElement> NpyOutStream<T> {
+impl<T, W> NpyOutStream<T, W>
+where
+    T: WritableElement,
+    W: std::io::Write,
+{
     /// Incrementally output to the stream a slice of data.
     ///
     /// An error will be raised if the total number of array elements that are put into the stream
@@ -63,13 +73,18 @@ impl<T: WritableElement> NpyOutStream<T> {
         self.tot_elems
     }
 
+    /// Check if all the expected elements have been written into the stream.
     #[inline(always)]
     pub fn finished(&self) -> bool {
         self.tot_elems == self.written_elems
     }
 }
 
-impl<T: WritableElement> Drop for NpyOutStream<T> {
+impl<T, W> Drop for NpyOutStream<T, W>
+where
+    T: WritableElement,
+    W: std::io::Write,
+{
     fn drop(&mut self) {
         if !self.finished() {
             eprintln!("WARNING: The NpyOutStream is closed without receiving all elements: expect {} elements, received {} elements",
@@ -79,6 +94,7 @@ impl<T: WritableElement> Drop for NpyOutStream<T> {
 }
 
 impl<T: WritableElement> NpyOutStreamBuilder<T> {
+    /// Start to build an output stream to the given file.
     pub fn new<P: AsRef<Path>>(path: P) -> NpyOutStreamBuilder<T> {
         NpyOutStreamBuilder {
             path: path.as_ref().to_path_buf(),
@@ -87,6 +103,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
                 fortran_order: false,
                 shape: Vec::with_capacity(3),
             },
+            buf_size: 0,
             _marker: marker::PhantomData,
         }
     }
@@ -99,12 +116,14 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         self
     }
 
+    /// Set the output dimentsion as a 1D array of the given size.
     pub fn for_arr1(mut self, len: usize) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.push(len);
         self
     }
 
+    /// Set the output dimentsion as a 2D array of the given size.
     pub fn for_arr2(mut self, dim: [usize; 2]) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.extend_from_slice(&dim);
@@ -117,6 +136,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         self
     }
 
+    /// Set to store the array in Fortran order (column major).
     pub fn f(mut self) -> NpyOutStreamBuilder<T> {
         self.header.fortran_order = true;
         self
@@ -127,8 +147,18 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         self
     }
 
-    pub fn build(self) -> Result<NpyOutStream<T>, WriteNpyError> {
-        let mut writer = File::create(self.path)?;
+    /// Set the buffer size for outputting the stream. When `buf_size` is zero,
+    /// the default buffer size of [`BufWriter`](https://doc.rust-lang.org/std/io/struct.BufWriter.html) will be used.
+    pub fn with_buf_size(mut self, buf_size: usize) -> NpyOutStreamBuilder<T> {
+        self.buf_size = buf_size;
+        self
+    }
+
+    pub fn build(self) -> Result<NpyOutStream<T, BufWriter<File>>, WriteNpyError> {
+        let mut writer = match self.buf_size {
+            0 => BufWriter::new(File::create(self.path)?),
+            _ => BufWriter::with_capacity(self.buf_size, File::create(self.path)?),
+        };
         self.header.write(&mut writer)?;
 
         let tot_elems = self.header.shape.iter().fold(1, |s, &a| s * a);
