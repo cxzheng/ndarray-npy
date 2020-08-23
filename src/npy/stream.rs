@@ -16,6 +16,7 @@ pub struct NpyOutStream<T: WritableElement> {
     tot_elems: usize,     // total number of elements to output
     written_elems: usize, // how many elements have been written
     writer: File,
+    closed: bool,
     _marker: marker::PhantomData<T>,
 }
 
@@ -47,7 +48,7 @@ impl<T: WritableElement> NpyOutStream<T> {
     pub fn write_slice(&mut self, slice: &[T]) -> Result<usize, WriteNpyError> {
         if self.written_elems + slice.len() > self.tot_elems {
             Err(
-                WriteDataError::TooManyElement(self.tot_elems, self.written_elems + slice.len())
+                WriteDataError::TooManyElements(self.tot_elems, self.written_elems + slice.len())
                     .into(),
             )
         } else {
@@ -68,11 +69,21 @@ impl<T: WritableElement> NpyOutStream<T> {
     pub fn finished(&self) -> bool {
         self.tot_elems == self.written_elems
     }
+
+    pub fn close(mut self) -> Result<(), WriteDataError> {
+        self.closed = true;
+
+        if self.written_elems < self.tot_elems  {
+            Err(WriteDataError::TooFewElements(self.tot_elems(), self.written_elems))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl<T: WritableElement> Drop for NpyOutStream<T> {
     fn drop(&mut self) {
-        if !self.finished() {
+        if !self.closed && !self.finished() {
             eprintln!("WARNING: The NpyOutStream is closed without receiving all elements: expect {} elements, received {} elements",
                       self.tot_elems(), self.written_elems);
         }
@@ -141,6 +152,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
             tot_elems,
             written_elems: 0,
             writer,
+            closed: false,
             _marker: marker::PhantomData,
         })
     }
@@ -179,5 +191,20 @@ mod test {
             stream.write_slice(&vec).unwrap();
         }
         assert!(stream.finished());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_panic() {
+        let mut stream = NpyOutStreamBuilder::<f32>::new("out.npy")
+            .for_dim((2, 3))
+            .build()
+            .unwrap();
+        assert_eq!(stream.tot_elems(), 6);
+        let vec1 = vec![1., 2.];
+        let vec2 = vec![3., 4., 5.];
+        stream.write_slice(&vec1).unwrap();
+        stream.write_slice(&vec2).unwrap();
+        stream.close().unwrap();
     }
 }
