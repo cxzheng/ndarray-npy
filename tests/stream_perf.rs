@@ -36,7 +36,7 @@ fn stream_perf() {
         let start = Instant::now();
         stream.write_slice(&vec).unwrap();
         let duration = start.elapsed();
-        eprintln!("{}", duration.as_micros());
+        eprintln!("{:?}", duration); //.as_micros());
         tot_time += duration;
         ts.push(duration);
     }

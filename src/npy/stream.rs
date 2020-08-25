@@ -70,11 +70,16 @@ impl<T: WritableElement> NpyOutStream<T> {
         self.tot_elems == self.written_elems
     }
 
+    /// Close the stream. If the written elements is fewer than the expected total number
+    /// of elements. A [`WriteDataError`](WriteDataError) will arise.
     pub fn close(mut self) -> Result<(), WriteDataError> {
         self.closed = true;
 
-        if self.written_elems < self.tot_elems  {
-            Err(WriteDataError::TooFewElements(self.tot_elems(), self.written_elems))
+        if self.written_elems < self.tot_elems {
+            Err(WriteDataError::TooFewElements(
+                self.tot_elems(),
+                self.written_elems,
+            ))
         } else {
             Ok(())
         }
@@ -126,6 +131,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         self
     }
 
+    /// Set the output dimentsion as a 3D array of the given size.
     pub fn for_arr3(mut self, dim: [usize; 3]) -> NpyOutStreamBuilder<T> {
         self.header.shape.clear();
         self.header.shape.extend_from_slice(&dim);
@@ -138,6 +144,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         self
     }
 
+    /// Set to store the array in C order (row major).
     pub fn c(mut self) -> NpyOutStreamBuilder<T> {
         self.header.fortran_order = false;
         self

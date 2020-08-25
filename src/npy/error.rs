@@ -83,7 +83,7 @@ pub enum WriteDataError {
 
     #[error("Number of written elements ({1}) exceeds the size ({0}) given by the dim")]
     TooManyElements(usize, usize),
-    
+
     #[error("Number of written elements ({1}) is less than the size ({0}) given by the dim")]
     TooFewElements(usize, usize),
 }
