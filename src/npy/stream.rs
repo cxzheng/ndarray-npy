@@ -154,7 +154,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         let mut writer = File::create(self.path)?;
         self.header.write(&mut writer)?;
 
-        let tot_elems = self.header.shape.iter().fold(1, |s, &a| s * a);
+        let tot_elems = self.header.shape.iter().product();
         Ok(NpyOutStream {
             tot_elems,
             written_elems: 0,
