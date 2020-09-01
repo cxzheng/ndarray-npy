@@ -15,7 +15,7 @@ use std::{
 /// 
 /// # Example
 ///
-/// ```no_run
+/// ```
 /// use ndarray_npy::NpyOutStreamBuilder;
 /// # use ndarray_npy::WriteNpyError;
 ///
@@ -23,7 +23,7 @@ use std::{
 /// let data = vec![0_f32; 4];
 /// 
 /// let ret = stream.write_slice(&data)?;
-/// assert_eq_!(ret, 4);
+/// assert_eq!(ret, 4);
 /// # Ok::<_, WriteNpyError>(())
 /// ```
 pub struct NpyOutStream<T: WritableElement> {
