@@ -12,6 +12,20 @@ use std::{
 
 /// This define a stream that allows progressively output a stream of array data
 /// into a `.npy` file.
+/// 
+/// # Example
+///
+/// ```no_run
+/// use ndarray_npy::NpyOutStreamBuilder;
+/// # use ndarray_npy::WriteNpyError;
+///
+/// let mut stream = NpyOutStreamBuilder::<f32>::new("out.npy").for_arr2([2, 2]).build()?;
+/// let data = vec![0_f32; 4];
+/// 
+/// let ret = stream.write_slice(&data)?;
+/// assert_eq_!(ret, 4);
+/// # Ok::<_, WriteNpyError>(())
+/// ```
 pub struct NpyOutStream<T: WritableElement> {
     tot_elems: usize,     // total number of elements to output
     written_elems: usize, // how many elements have been written
@@ -23,7 +37,7 @@ pub struct NpyOutStream<T: WritableElement> {
 /// This is the builder for creating an output stream that write a NPY array into
 /// a file.
 ///
-/// The builder is created from specifying the file name using [`new`](#method.from_path).
+/// The builder is created from specifying the file name using [`new`](#method.new).
 ///
 /// # Example
 ///
@@ -150,6 +164,7 @@ impl<T: WritableElement> NpyOutStreamBuilder<T> {
         self
     }
 
+    /// Consume the current builder, and produce a [`NpyOutStream`] ready to use.
     pub fn build(self) -> Result<NpyOutStream<T>, WriteNpyError> {
         let mut writer = File::create(self.path)?;
         self.header.write(&mut writer)?;
